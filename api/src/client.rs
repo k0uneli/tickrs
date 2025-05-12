@@ -8,10 +8,12 @@ use serde::de::DeserializeOwned;
 
 use crate::model::{Chart, ChartData, Company, CompanyData, CrumbData, Options, OptionsHeader};
 use crate::{Interval, Range};
+use reqwest::header::{HeaderMap, HeaderValue, COOKIE, USER_AGENT};
+
 
 #[derive(Debug)]
 pub struct Client {
-    client: HttpClient,
+    client: reqwest::Client,
     base: String,
 }
 
@@ -37,24 +39,32 @@ impl Client {
     }
 
     async fn get<T: DeserializeOwned>(&self, url: Uri, cookie: Option<String>) -> Result<T> {
-        let mut req = Request::builder()
-            .method(http::Method::GET)
-            .uri(url)
-            .header(header::USER_AGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            USER_AGENT,
+            HeaderValue::from_static("Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"),
+        );
 
-        if let Some(cookie) = cookie {
-            req = req.header(header::COOKIE, cookie);
+        if let Some(cookie_value) = cookie {
+            headers.insert(COOKIE, HeaderValue::from_str(&cookie_value)?);
         }
+        
+        let url_string = url.to_string();
 
         let res = self
             .client
-            .send_async(req.body(())?)
+            .get(&url_string)
+            .headers(headers)
+            .send()
             .await
             .context("Failed to get request")?;
 
-        let mut body = res.into_body();
-        let mut bytes = Vec::new();
-        body.read_to_end(&mut bytes).await?;
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read body")?;
+
+        //body.read_to_end(&mut bytes).await?;
 
         let response = serde_json::from_slice(&bytes)?;
 
