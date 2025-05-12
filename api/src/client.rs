@@ -9,7 +9,7 @@ use serde::de::DeserializeOwned;
 use crate::model::{Chart, ChartData, Company, CompanyData, CrumbData, Options, OptionsHeader};
 use crate::{Interval, Range};
 use reqwest::header::{HeaderMap, HeaderValue, COOKIE, USER_AGENT};
-
+use reqwest::{Client as ReqwestClient, ClientBuilder};
 
 #[derive(Debug)]
 pub struct Client {
@@ -246,16 +246,16 @@ impl Client {
 impl Default for Client {
     fn default() -> Client {
         #[allow(unused_mut)]
-        let mut builder = HttpClient::builder();
+        let mut builder = ReqwestClient::builder();
 
         #[cfg(target_os = "android")]
         {
-            use isahc::config::{Configurable, SslOption};
-
-            builder = builder.ssl_options(SslOption::DANGER_ACCEPT_INVALID_CERTS);
+            bbuilder = builder.danger_accept_invalid_certs(true);
         }
 
-        let client = builder.build().unwrap();
+        let client = builder
+            .build()
+            .unwrap();
 
         let base = String::from("https://query1.finance.yahoo.com");
 
