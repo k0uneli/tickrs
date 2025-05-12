@@ -211,7 +211,7 @@ impl Client {
             .await
             .context("Failed to get request")?;
 
-        let Some(cookie) = res
+        let cookie = res
             .headers()
             .get(reqwest::header::SET_COOKIE)
             .and_then(|header| header.to_str().ok())
