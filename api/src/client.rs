@@ -206,28 +206,35 @@ impl Client {
     pub async fn get_crumb(&self) -> Result<CrumbData> {
         let res = self
             .client
-            .get_async("https://fc.yahoo.com")
+            .get("https://fc.yahoo.com")
+            .send()
             .await
             .context("Failed to get request")?;
 
         let Some(cookie) = res
             .headers()
-            .get(header::SET_COOKIE)
+            .get(reqwest::header::SET_COOKIE)
             .and_then(|header| header.to_str().ok())
             .and_then(|s| s.split_once(';').map(|(value, _)| value))
-        else {
-            bail!("Couldn't fetch cookie");
-        };
+            .ok_or_else(|| anyhow::anyhow!("Couldn't fetch cookie"))?;
 
-        let request = Request::builder()
-            .uri(self.get_url(Version::V1, "test/getcrumb", None)?)
-            .header(header::USER_AGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36")
-            .header(header::COOKIE, cookie)
-            .method(http::Method::GET)
-            .body(())?;
-        let mut res = self.client.send_async(request).await?;
+        let url = self.get_url(Version::V1, "test/getcrumb", None)?;
+        
+        let url_string = url.to_string();
 
-        let crumb = res.text().await?;
+        let res = self
+            .client
+            .get(&url_string)
+            .header(USER_AGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36")
+            .header(COOKIE, cookie)
+            .send()
+            .await
+            .context("Failed to get crumb")?;
+            
+        let crumb = res
+            .text()
+            .await
+            .context("Failed to read crumb response")?;
 
         Ok(CrumbData {
             cookie: cookie.to_string(),
